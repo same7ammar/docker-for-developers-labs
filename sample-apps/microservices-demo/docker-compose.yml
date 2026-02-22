@@ -1,0 +1,194 @@
+version: '3.8'
+
+services:
+  # ===================
+  # NGINX Load Balancer
+  # ===================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-gateway
+      - frontend
+    networks:
+      - frontend-network
+    restart: unless-stopped
+
+  # ===================
+  # Frontend
+  # ===================
+  frontend:
+    build: ./frontend
+    networks:
+      - frontend-network
+    restart: unless-stopped
+
+  # ===================
+  # API Gateway
+  # ===================
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - USER_SERVICE_URL=http://user-service:3001
+      - PRODUCT_SERVICE_URL=http://product-service:3002
+      - ORDER_SERVICE_URL=http://order-service:3003
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    networks:
+      - frontend-network
+      - backend-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===================
+  # User Service
+  # ===================
+  user-service:
+    build: ./user-service
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgres://postgres:password@users-db:5432/users_db
+    depends_on:
+      users-db:
+        condition: service_healthy
+    networks:
+      - backend-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  users-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=users_db
+    volumes:
+      - users-db-data:/var/lib/postgresql/data
+      - ./user-service/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d users_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===================
+  # Product Service
+  # ===================
+  product-service:
+    build: ./product-service
+    environment:
+      - PORT=3002
+      - DATABASE_URL=postgres://postgres:password@products-db:5432/products_db
+    depends_on:
+      products-db:
+        condition: service_healthy
+    networks:
+      - backend-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  products-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=products_db
+    volumes:
+      - products-db-data:/var/lib/postgresql/data
+      - ./product-service/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d products_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===================
+  # Order Service
+  # ===================
+  order-service:
+    build: ./order-service
+    environment:
+      - PORT=3003
+      - DATABASE_URL=postgres://postgres:password@orders-db:5432/orders_db
+      - USER_SERVICE_URL=http://user-service:3001
+      - PRODUCT_SERVICE_URL=http://product-service:3002
+    depends_on:
+      orders-db:
+        condition: service_healthy
+    networks:
+      - backend-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  orders-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=orders_db
+    volumes:
+      - orders-db-data:/var/lib/postgresql/data
+      - ./order-service/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orders_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+# ===================
+# Networks
+# ===================
+networks:
+  frontend-network:
+    driver: bridge
+  backend-network:
+    driver: bridge
+    internal: true
+
+# ===================
+# Volumes
+# ===================
+volumes:
+  users-db-data:
+  products-db-data:
+  orders-db-data:

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Microservices Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        header p {
+            opacity: 0.9;
+        }
+        .status-bar {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: white;
+        }
+        .status-item {
+            display: inline-block;
+            margin-right: 20px;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        .status-healthy {
+            background: #48bb78;
+        }
+        .status-unhealthy {
+            background: #f56565;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card h2 span {
+            font-size: 1.5em;
+        }
+        .list {
+            list-style: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .list li {
+            padding: 12px;
+            background: #f7fafc;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        .list li strong {
+            color: #2d3748;
+        }
+        .list li small {
+            color: #718096;
+            display: block;
+            margin-top: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .price {
+            color: #48bb78;
+            font-weight: bold;
+        }
+        .stock {
+            color: #718096;
+        }
+        .order-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-confirmed { background: #dbeafe; color: #1e40af; }
+        .status-shipped { background: #e0e7ff; color: #3730a3; }
+        .status-delivered { background: #d1fae5; color: #065f46; }
+        .status-cancelled { background: #fee2e2; color: #991b1b; }
+        .refresh-btn {
+            background: #48bb78;
+            margin-left: 10px;
+            padding: 8px 16px;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛒 E-Commerce Platform</h1>
+            <p>Microservices Demo - Docker Practical Labs</p>
+        </header>
+
+        <div class="status-bar" id="statusBar">
+            <strong>Services Status:</strong>
+            <span id="serviceStatus">Loading...</span>
+        </div>
+
+        <div class="grid">
+            <!-- Users Section -->
+            <div class="card">
+                <h2><span>👥</span> Users <button class="refresh-btn" onclick="loadUsers()">↻</button></h2>
+                <div id="userMessage"></div>
+                <ul class="list" id="userList">
+                    <li>Loading...</li>
+                </ul>
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e2e8f0;">
+                <h3 style="margin-bottom: 10px; color: #4a5568;">Add New User</h3>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="userName" placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="userEmail" placeholder="john@example.com">
+                </div>
+                <button onclick="createUser()">Add User</button>
+            </div>
+
+            <!-- Products Section -->
+            <div class="card">
+                <h2><span>📦</span> Products <button class="refresh-btn" onclick="loadProducts()">↻</button></h2>
+                <div id="productMessage"></div>
+                <ul class="list" id="productList">
+                    <li>Loading...</li>
+                </ul>
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e2e8f0;">
+                <h3 style="margin-bottom: 10px; color: #4a5568;">Add New Product</h3>
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="productName" placeholder="Product Name">
+                </div>
+                <div class="form-group">
+                    <label>Price</label>
+                    <input type="number" id="productPrice" placeholder="99.99" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Stock</label>
+                    <input type="number" id="productStock" placeholder="100">
+                </div>
+                <button onclick="createProduct()">Add Product</button>
+            </div>
+
+            <!-- Orders Section -->
+            <div class="card">
+                <h2><span>🛍️</span> Orders <button class="refresh-btn" onclick="loadOrders()">↻</button></h2>
+                <div id="orderMessage"></div>
+                <ul class="list" id="orderList">
+                    <li>Loading...</li>
+                </ul>
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e2e8f0;">
+                <h3 style="margin-bottom: 10px; color: #4a5568;">Create New Order</h3>
+                <div class="form-group">
+                    <label>User</label>
+                    <select id="orderUser">
+                        <option value="">Select User</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Product</label>
+                    <select id="orderProduct">
+                        <option value="">Select Product</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="orderQuantity" placeholder="1" value="1" min="1">
+                </div>
+                <button onclick="createOrder()">Place Order</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        // Check service health
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                let statusHtml = '';
+                statusHtml += `<span class="status-item ${data.gateway === 'healthy' ? 'status-healthy' : 'status-unhealthy'}">Gateway</span>`;
+                
+                for (const [service, status] of Object.entries(data.services)) {
+                    statusHtml += `<span class="status-item ${status === 'healthy' ? 'status-healthy' : 'status-unhealthy'}">${service}</span>`;
+                }
+                
+                document.getElementById('serviceStatus').innerHTML = statusHtml;
+            } catch (error) {
+                document.getElementById('serviceStatus').innerHTML = '<span class="status-item status-unhealthy">API Unavailable</span>';
+            }
+        }
+
+        // Load users
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_URL}/users`);
+                const users = await response.json();
+                
+                const list = document.getElementById('userList');
+                const select = document.getElementById('orderUser');
+                
+                if (users.length === 0) {
+                    list.innerHTML = '<li>No users found</li>';
+                    select.innerHTML = '<option value="">No users available</option>';
+                    return;
+                }
+                
+                list.innerHTML = users.map(user => `
+                    <li>
+                        <strong>${user.name}</strong>
+                        <small>${user.email}</small>
+                    </li>
+                `).join('');
+                
+                select.innerHTML = '<option value="">Select User</option>' + 
+                    users.map(user => `<option value="${user.id}">${user.name}</option>`).join('');
+            } catch (error) {
+                document.getElementById('userList').innerHTML = '<li>Failed to load users</li>';
+            }
+        }
+
+        // Create user
+        async function createUser() {
+            const name = document.getElementById('userName').value;
+            const email = document.getElementById('userEmail').value;
+            
+            if (!name || !email) {
+                showMessage('userMessage', 'Please fill in all fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to create user');
+                }
+                
+                showMessage('userMessage', 'User created successfully!', 'success');
+                document.getElementById('userName').value = '';
+                document.getElementById('userEmail').value = '';
+                loadUsers();
+            } catch (error) {
+                showMessage('userMessage', error.message, 'error');
+            }
+        }
+
+        // Load products
+        async function loadProducts() {
+            try {
+                const response = await fetch(`${API_URL}/products`);
+                const products = await response.json();
+                
+                const list = document.getElementById('productList');
+                const select = document.getElementById('orderProduct');
+                
+                if (products.length === 0) {
+                    list.innerHTML = '<li>No products found</li>';
+                    select.innerHTML = '<option value="">No products available</option>';
+                    return;
+                }
+                
+                list.innerHTML = products.map(product => `
+                    <li>
+                        <strong>${product.name}</strong>
+                        <small>
+                            <span class="price">$${parseFloat(product.price).toFixed(2)}</span> | 
+                            <span class="stock">Stock: ${product.stock}</span>
+                        </small>
+                    </li>
+                `).join('');
+                
+                select.innerHTML = '<option value="">Select Product</option>' + 
+                    products.map(product => `<option value="${product.id}">${product.name} - $${parseFloat(product.price).toFixed(2)}</option>`).join('');
+            } catch (error) {
+                document.getElementById('productList').innerHTML = '<li>Failed to load products</li>';
+            }
+        }
+
+        // Create product
+        async function createProduct() {
+            const name = document.getElementById('productName').value;
+            const price = document.getElementById('productPrice').value;
+            const stock = document.getElementById('productStock').value;
+            
+            if (!name || !price) {
+                showMessage('productMessage', 'Please fill in name and price', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/products`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, price: parseFloat(price), stock: parseInt(stock) || 0 })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to create product');
+                }
+                
+                showMessage('productMessage', 'Product created successfully!', 'success');
+                document.getElementById('productName').value = '';
+                document.getElementById('productPrice').value = '';
+                document.getElementById('productStock').value = '';
+                loadProducts();
+            } catch (error) {
+                showMessage('productMessage', error.message, 'error');
+            }
+        }
+
+        // Load orders
+        async function loadOrders() {
+            try {
+                const response = await fetch(`${API_URL}/orders`);
+                const orders = await response.json();
+                
+                const list = document.getElementById('orderList');
+                
+                if (orders.length === 0) {
+                    list.innerHTML = '<li>No orders found</li>';
+                    return;
+                }
+                
+                list.innerHTML = orders.map(order => `
+                    <li>
+                        <strong>Order #${order.id}</strong>
+                        <span class="order-status status-${order.status}">${order.status}</span>
+                        <small>
+                            Total: <span class="price">$${parseFloat(order.total_amount).toFixed(2)}</span> | 
+                            Items: ${order.items ? order.items.length : 0}
+                        </small>
+                    </li>
+                `).join('');
+            } catch (error) {
+                document.getElementById('orderList').innerHTML = '<li>Failed to load orders</li>';
+            }
+        }
+
+        // Create order
+        async function createOrder() {
+            const userId = document.getElementById('orderUser').value;
+            const productId = document.getElementById('orderProduct').value;
+            const quantity = document.getElementById('orderQuantity').value;
+            
+            if (!userId || !productId || !quantity) {
+                showMessage('orderMessage', 'Please fill in all fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: parseInt(userId),
+                        items: [{ productId: parseInt(productId), quantity: parseInt(quantity) }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to create order');
+                }
+                
+                showMessage('orderMessage', 'Order placed successfully!', 'success');
+                document.getElementById('orderQuantity').value = '1';
+                loadOrders();
+                loadProducts(); // Refresh stock
+            } catch (error) {
+                showMessage('orderMessage', error.message, 'error');
+            }
+        }
+
+        // Show message
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => element.innerHTML = '', 3000);
+        }
+
+        // Initialize
+        checkHealth();
+        loadUsers();
+        loadProducts();
+        loadOrders();
+        
+        // Refresh health status every 30 seconds
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>
