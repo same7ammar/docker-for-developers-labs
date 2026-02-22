@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Full-Stack Docker App</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 40px 20px;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      h1 {
+        color: white;
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 2.5em;
+      }
+      .card {
+        background: white;
+        border-radius: 10px;
+        padding: 30px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      }
+      .input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      input[type="text"] {
+        flex: 1;
+        padding: 12px 15px;
+        border: 2px solid #e0e0e0;
+        border-radius: 5px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+      }
+      input[type="text"]:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+      button {
+        padding: 12px 25px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+      button:hover {
+        background: #5a67d8;
+      }
+      .items-list {
+        list-style: none;
+      }
+      .items-list li {
+        padding: 15px;
+        background: #f8f9fa;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .items-list li:hover {
+        background: #e9ecef;
+      }
+      .timestamp {
+        font-size: 12px;
+        color: #6c757d;
+      }
+      .status {
+        text-align: center;
+        padding: 10px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+      }
+      .status.connected {
+        background: #d4edda;
+        color: #155724;
+      }
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .empty-state {
+        text-align: center;
+        color: #6c757d;
+        padding: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🐳 Full-Stack Docker App</h1>
+      <div class="card">
+        <div id="status" class="status">Connecting to backend...</div>
+
+        <div class="input-group">
+          <input
+            type="text"
+            id="itemName"
+            placeholder="Enter item name"
+            onkeypress="if (event.key === 'Enter') addItem();"
+          />
+          <button onclick="addItem()">Add Item</button>
+        </div>
+
+        <ul id="items" class="items-list">
+          <li class="empty-state">Loading items...</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:3001/api";
+
+      async function checkHealth() {
+        const statusEl = document.getElementById("status");
+        try {
+          const res = await fetch(`${API_URL}/health`);
+          const data = await res.json();
+          statusEl.className = "status connected";
+          statusEl.textContent = `✅ Connected to backend (${data.hostname})`;
+          return true;
+        } catch (err) {
+          statusEl.className = "status error";
+          statusEl.textContent = "❌ Cannot connect to backend";
+          return false;
+        }
+      }
+
+      async function loadItems() {
+        const listEl = document.getElementById("items");
+        try {
+          const res = await fetch(`${API_URL}/items`);
+          const items = await res.json();
+
+          if (items.length === 0) {
+            listEl.innerHTML =
+              '<li class="empty-state">No items yet. Add one above!</li>';
+            return;
+          }
+
+          listEl.innerHTML = items
+            .map(
+              (item) => `
+                    <li>
+                        <span>${item.name}</span>
+                        <span class="timestamp">${new Date(item.created_at).toLocaleString()}</span>
+                    </li>
+                `,
+            )
+            .join("");
+        } catch (err) {
+          listEl.innerHTML =
+            '<li class="empty-state">Failed to load items</li>';
+        }
+      }
+
+      async function addItem() {
+        const input = document.getElementById("itemName");
+        const name = input.value.trim();
+
+        if (!name) {
+          alert("Please enter an item name");
+          return;
+        }
+
+        try {
+          await fetch(`${API_URL}/items`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name }),
+          });
+          input.value = "";
+          loadItems();
+        } catch (err) {
+          alert("Failed to add item");
+        }
+      }
+
+      // Initialize
+      (async function init() {
+        const connected = await checkHealth();
+        if (connected) {
+          loadItems();
+        }
+      })();
+    </script>
+  </body>
+</html>

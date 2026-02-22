@@ -1,0 +1,75 @@
+version: "3.8"
+services:
+  frontend:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - frontend-net
+    depends_on:
+      - backend
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_TIME
+    cap_drop:
+      - ALL
+
+  backend:
+    build:
+      context: ./backend
+    # ports:
+    #   - "3001:3001"
+    # # environment:
+    # #   - PORT=3001
+    # #   - DATABASE_URL=postgresql://app:secret@db:5432/myapp
+    env_file:
+      - ./backend/.env
+    networks:
+      - frontend-net
+      - backend-net
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        replicas: 10
+        limits:
+          cpus: "0.5"
+          memory: 256M
+  db:
+    image: dhi.io/postgres:18-alpine3.22-dev
+
+    environment:
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=myapp
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d myapp"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres-data:
+
+networks:
+  frontend-net:
+  backend-net:
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
